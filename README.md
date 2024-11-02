@@ -2,6 +2,10 @@
 Tugas UI Bisection Method dan Newton Backward Interpolation
 
 # Bisection Method & Newton Backward Interpolation App
+![image](https://github.com/user-attachments/assets/eca44f5c-2eff-42d3-be96-95a01d089938)
+
+![image](https://github.com/user-attachments/assets/38fd9081-f5a2-4e69-9106-6374b77c8f29)
+
 
 This application provides implementations of the Bisection Method and Newton Backward Interpolation using a graphical user interface built with PyQt5.
 
