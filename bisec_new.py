@@ -36,6 +36,11 @@ def bisection_method(f, a, b, tol):
 # Function for Newton Backward Interpolation
 def newton_backward_interpolation(x, y, value):
     n = len(x)
+    if n != len(y):
+        raise ValueError("The lengths of x and y must be the same.")
+    if n < 2:
+        raise ValueError("There must be at least two data points for interpolation.")
+    
     diff_table = np.zeros((n, n))
     diff_table[:, 0] = y
 
@@ -44,16 +49,22 @@ def newton_backward_interpolation(x, y, value):
         for i in range(n-1, j-2, -1):
             diff_table[i, j] = diff_table[i, j-1] - diff_table[i-1, j-1]
 
-    u = (value - x[-1]) / (x[1] - x[0])  # Calculate the u value for interpolation
+    # Check for uniform spacing
+    spacing = x[1] - x[0]
+    if not all(np.isclose(x[i] - x[i-1], spacing) for i in range(2, n)):
+        raise ValueError("x values must be equally spaced.")
+
+    u = (value - x[-1]) / spacing  # Calculate the u value for interpolation
     result = diff_table[-1, 0]
     u_term = 1
 
     # Calculate the interpolated value using the backward difference
     for i in range(1, n):
         u_term *= (u + i - 1) / i
-        result += u_term * diff_table[-1, i]
+        result += u_term * diff_table[n-1, i]
 
     return result, diff_table
+
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -61,8 +72,8 @@ class MainWindow(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle("Bisection Method & Newton Inter Backward APP")
-        self.setGeometry(100, 100, 760, 370)  # Set default window size
+        self.setWindowTitle("Bisection Method & Newton Interpolation Backward")
+        self.setGeometry(100, 100, 1230, 650)  # Set default window size
 
         # Main layout
         main_layout = QHBoxLayout()
@@ -96,8 +107,8 @@ class MainWindow(QWidget):
         self.bisection_button = QPushButton("Compute Bisection Method")
 
         # Add results display labels for Bisection Method
-        self.iteration_count_label = QLabel("Banyaknya Iterasi: ")
-        self.midpoint_label = QLabel("Nilai Akar: ")
+        self.iteration_count_label = QLabel("Max Iteration: ")
+        self.midpoint_label = QLabel("Root: ")
 
         bisection_layout.addRow("Function f(x):", self.function_input)
         bisection_layout.addRow("Start (a):", self.a_input)
@@ -121,6 +132,10 @@ class MainWindow(QWidget):
         interpolation_layout.addRow("Data Points (x, y):", self.data_points_input)
         interpolation_layout.addRow("Interpolate Value:", self.interp_value_input)
         interpolation_layout.addRow(self.interpolation_button)
+        
+        # Create QLabel for displaying interpolation result below the button
+        self.interpolation_result_label = QLabel("Interpolated Value:")
+        interpolation_layout.addRow(self.interpolation_result_label)
 
         self.interpolation_widget.setLayout(interpolation_layout)
         self.stacked_widget.addWidget(self.interpolation_widget)
@@ -178,32 +193,35 @@ class MainWindow(QWidget):
             f = lambda x: eval(f_str)
             root, midpoints, iteration_count = bisection_method(f, a, b, tol)
             if root is None:
-                self.result_display.setText(midpoints)
+                self.result_display.setText("Error: Bisection method fails. The function must have opposite signs at a and b.")
             else:
                 result_text = (f"Root found: {root}\nIterations: {iteration_count}\n"
                                f"Converged value: {midpoints[-1] if midpoints else 'N/A'}\nTolerance: {tol}")
                 self.result_display.setText(result_text)
 
-                self.iteration_count_label.setText(f"Banyaknya Iterasi: {iteration_count}")
-                self.midpoint_label.setText(f"Nilai Akar: {midpoints[-1] if midpoints else 'N/A'}")
+                self.iteration_count_label.setText(f"Max Iteration: {iteration_count}")
+                self.midpoint_label.setText(f"Root: {midpoints[-1] if midpoints else 'N/A'}")
 
+            
                 # Plotting using matplotlib embedded plot
-                fig, ax = plt.subplots(figsize=(5, 3))
+                fig, ax = plt.subplots(figsize=(10, 6))
                 x_values = np.linspace(a, b, 100)
                 y_values = [f(x) for x in x_values]
                 ax.plot(x_values, y_values, label=f"f(x) = {f_str}")
                 ax.axhline(0, color="gray", linestyle="--")
-                ax.scatter(midpoints, [f(mid) for mid in midpoints], color="red", marker="x", label="Midpoints")
+                ax.scatter(midpoints, [f(mid) for mid in midpoints], color="red", marker="x", label="Midpoints Iteration")
+                ax.scatter(midpoints[-1], f(midpoints[-1]), color="green", marker="o", label="Root")
                 ax.legend()
 
                 # Save plot to temporary file and display in QLabel
                 plot_path = "temp_plot.png"
                 fig.savefig(plot_path)
                 plt.close(fig)
+
                 self.result_display.setPixmap(QPixmap(plot_path))
+                self.result_display.setScaledContents(True)
                 os.remove(plot_path)
-        except ValueError as e:
-            self.result_display.setText(f"Error: {e}")
+
         except Exception as e:
             self.result_display.setText(f"Error: {e}")
 
@@ -216,33 +234,67 @@ class MainWindow(QWidget):
             y = [point[1] for point in data_points]
             result, diff_table = newton_backward_interpolation(x, y, value)
 
-            # Prepare the output string with Δy displayed
-            result_text = f"Interpolated Value: {result}\n\n"
+            # Display the interpolated value below the button
+            self.interpolation_result_label.setText(f"Interpolated Value at x = {value}: {result:.4f}")
+
+            # Prepare the output string with Δy displayed in the result_display QLabel
+            result_text = f"Interpolated Value at x = {value}: {result}\n\n"
             
             # Create dynamic headers for the difference table
-            headers = ["x", "y", " "]
-            num_deltas = len(diff_table[0])  # This should give you the correct number of Δy
-            for i in range(1, num_deltas):  # Start from 1 since the first column is y
+            headers = ["x", "y"]
+            num_deltas = len(diff_table[0])
+            for i in range(1, num_deltas): 
                 headers.append(f"Δ^{i}y")
             
             # Add headers to the result_text
-            result_text += "\t".join(headers) + "\n"
-
+            result_text += "{:<10}".format("x") + "{:<10}".format("y") + "".join(f"{h:<10}" for h in headers[2:]) + "\n"
+            result_text += "-" * 10 * len(headers) + "\n"  # Add a separator line
+            
             # Populate the result text with data from the difference table
             for i in range(len(diff_table)):
-                # Prepare a string for the current row
-                row = f"{x[i]}\t{y[i]}\t"
-                row += "\t".join([f"{diff_table[i][j]:.4f}" for j in range(num_deltas)])
+                row = f"{x[i]:<10}{y[i]:<10}"
+                row += "".join(f"{diff_table[i][j]:<10.4f}" if not np.isnan(diff_table[i][j]) else " " * 10 for j in range(1, num_deltas))
                 result_text += row + "\n"
 
             self.result_display.setText(result_text)
+
+            # Plotting the interpolation result and original points
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Plot original data points
+            ax.scatter(x, y, color="blue", label="Data Points")
+            
+            # Plot interpolated point
+            ax.scatter(value, result, color="red", marker="x", label=f"Interpolated at x = {value}")
+            
+            # Generate additional x values to make a smooth curve
+            x_range = np.linspace(min(x), max(x), 100)
+            interpolated_y = [newton_backward_interpolation(x, y, xi)[0] for xi in x_range]
+            
+            # Plot the interpolation curve
+            ax.plot(x_range, interpolated_y, color="green", linestyle="--", label="Interpolation Curve")
+            
+            ax.legend()
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.set_title("Newton Backward Interpolation")
+            
+            # Save plot to temporary file and display in QLabel
+            plot_path = "temp_interp_plot.png"
+            fig.savefig(plot_path)
+            plt.close(fig)
+
+            # Display plot in QLabel
+            self.result_display.setPixmap(QPixmap(plot_path))
+            self.result_display.setScaledContents(True)
+            os.remove(plot_path)
+
         except Exception as e:
             self.result_display.setText(f"Error: {e}")
 
 
+app = QApplication(sys.argv)
+main_window = MainWindow()
+main_window.show()
+sys.exit(app.exec_())
 
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
