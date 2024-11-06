@@ -39,7 +39,7 @@ Follow the steps below to set up the environment and run the application:
    conda activate myenv
 3. Install required packages: Use the following command to install NumPy, Matplotlib, and PyQt5:
     ```bash
-    conda install numpy matplotlib PyQt5
+    pip install numpy matplotlib PyQt5
 4. Run the application: You can run the application using Python:
     ```bash
     python your_script_name.py
